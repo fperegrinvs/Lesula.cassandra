@@ -56,8 +56,10 @@
     <Compile Include="Core\DefaultClusterTests.cs" />
     <Compile Include="Core\EncoderTests.cs" />
     <Compile Include="Core\GuidGeneratorTests.cs" />
+    <Compile Include="Front\DataDrivenTests.cs" />
     <Compile Include="Front\MutatorTests.cs" />
     <Compile Include="Front\StructureTests.cs" />
+    <Compile Include="Front\SimpleCommandsTests.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="TestHelper.cs" />
   </ItemGroup>

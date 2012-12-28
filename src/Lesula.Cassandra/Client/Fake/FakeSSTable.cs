@@ -132,7 +132,7 @@
 
             set
             {
-                this.data[key] = value;
+                this.SetItem(key, value);
             }
         }
 
@@ -155,9 +155,41 @@
             return new FakeSSTable(newData);
         }
 
-        internal static List<byte[]> GetView(SortedSet<byte[]> values, byte[] start, byte[] finish, int? count = null, bool reversed = false)
+        internal static List<byte[]> GetView(SortedSet<byte[]> values, byte[] start, byte[] finish, int? count = null, bool reversed = false, bool cyclic = false)
         {
-            var view = values.GetViewBetween(start, finish).ToList();
+
+            List<byte[]> view;
+            if (start == null || start.Length == 0)
+            {
+                if (finish == null || finish.Length == 0)
+                {
+                    view = values.ToList();
+                }
+                else
+                {
+                    view = values.GetViewBetween(values.Min, finish).ToList();
+                }
+            }
+            else
+            {
+                if (finish == null || finish.Length == 0)
+                {
+                    view = values.GetViewBetween(start, values.Max).ToList();
+                }
+                else
+                {
+                    if (cyclic && new ByteArrayComparer().Compare(start, finish) > 0)
+                    {
+                        view = values.GetViewBetween(finish, values.Max).ToList();
+                        view.AddRange(values.GetViewBetween(values.Min, start));
+                    }
+                    else
+                    {
+                        view = values.GetViewBetween(start, finish).ToList();
+                    }
+                }
+            }
+
             if (reversed)
             {
                 view.Reverse();
@@ -182,7 +214,7 @@
 
             if (keyRange.__isset.start_token || keyRange.__isset.end_token)
             {
-                results = this.Slice(keyRange.Start_token.ToBytes(), keyRange.End_token.ToBytes(), keyRange.Count, false, false);
+                results = this.Slice(keyRange.Start_token.FromHexString(), keyRange.End_token.FromHexString(), keyRange.Count, false, false);
             }
             else
             {
@@ -256,7 +288,7 @@
 
             var startToken = this.HashKeyBytes(start);
             var endToken = this.HashKeyBytes(finish);
-            var view = GetView(this.tokens, startToken, endToken, count, reversed);
+            var view = GetView(this.tokens, startToken, endToken, count, reversed, true);
             return view.Select(token => this.tokenMap[token]).ToList();
         }
 

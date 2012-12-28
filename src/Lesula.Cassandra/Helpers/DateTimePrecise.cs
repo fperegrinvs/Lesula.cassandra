@@ -67,8 +67,7 @@ namespace Lesula.Cassandra.Helpers
 
                 DateTime t = DateTime.UtcNow;
 
-                DateTime tBaseNew = immutable._t_base.AddTicks(((
-                                                                      s - immutable._s_observed) * _clockTickFrequency) / immutable._stopWatchFrequency);
+                DateTime tBaseNew = immutable._t_base.AddTicks(((s - immutable._s_observed) * _clockTickFrequency) / immutable._stopWatchFrequency);
 
                 this._immutable = new DateTimePreciseSafeImmutable(
                     t,

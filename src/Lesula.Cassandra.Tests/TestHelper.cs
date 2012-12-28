@@ -1,15 +1,15 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-
-namespace Lesula.Cassandra.Tests
+﻿namespace Lesula.Cassandra.Tests
 {
     using Lesula.Cassandra.Cluster;
     using Lesula.Cassandra.FrontEnd;
 
     public static class TestHelper
     {
+        /// <summary>
+        /// Used to avoid racing conditions between tests
+        /// </summary>
+        public static object CassandraLock = new object();
+
         /// <summary>
         /// Default cluster
         /// </summary>

@@ -6,8 +6,8 @@
     using System.Text;
     using System.Threading;
 
-    using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Exceptions;
     using Lesula.Cassandra.Model;
@@ -172,6 +172,7 @@
                 foreach (IEndpoint endpoint in clonedBlackList)
                 {
                     IClient cassandraClient = this.ClientFactory.Create(endpoint, null);
+
                     try
                     {
                         cassandraClient.Open();

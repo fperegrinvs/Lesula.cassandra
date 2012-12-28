@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace Lesula.Cassandra.Model
+﻿namespace Lesula.Cassandra.Model
 {
     public interface IEndpoint
     {

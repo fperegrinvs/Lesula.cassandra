@@ -2,6 +2,8 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Diagnostics;
+    using System.Threading;
 
     using Microsoft.VisualStudio.TestTools.UnitTesting;
 
@@ -25,6 +27,9 @@
             {
                 var guid = Helpers.GuidGenerator.GenerateTimeBasedGuid();
                 generatedGuids.Add(guid);
+
+                // Guid timestamp precision is 100ns
+                Thread.Sleep(1);
             }
 
             Assert.AreEqual(cycles, generatedGuids.Count);

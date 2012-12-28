@@ -1,5 +1,7 @@
 ﻿namespace Lesula.Cassandra.Tests.Front
 {
+    using System.Threading;
+
     using Apache.Cassandra;
 
     using Lesula.Cassandra.Client.Fake;
@@ -14,6 +16,7 @@
         [TestInitialize]
         public void TestInit()
         {
+            Monitor.Enter(TestHelper.CassandraLock);
             FakeCassandra.Init();
             var connection = TestHelper.GetCluster();
             var manager = new KeyspaceManager(connection);
@@ -22,6 +25,12 @@
             var famManager = new ColumnFamilyManager(connection, "Test");
             famManager.TryAddColumnFamily("Sample", ColumnTypeEnum.Standard, ComparatorTypeEnum.UTF8Type);
             famManager.TryAddColumnFamily("Counter", ColumnTypeEnum.CounterStandard, ComparatorTypeEnum.UTF8Type);
+        }
+
+        [TestCleanup]
+        public void Cleanup()
+        {
+            Monitor.Exit(TestHelper.CassandraLock);
         }
 
         [TestMethod]

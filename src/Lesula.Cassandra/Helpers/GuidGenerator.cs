@@ -79,7 +79,7 @@ namespace Lesula.Cassandra.Helpers
         /// Segundo o RFC-4122: For UUID version 1, this is represented by Coordinated Universal Time (UTC)
         /// as a count of 100-nanosecond intervals since 00:00:00.00, 15 October 1582 (the date of Gregorian reform to the Christian calendar).
         /// </summary>
-        private static readonly byte TimestampByte = 0;
+        private const byte TimestampByte = 0;
 
         /// <summary>
         /// Sequência do clock. Segundo o RFC-4122
@@ -89,7 +89,7 @@ namespace Lesula.Cassandra.Helpers
         ///  not be sure that no UUIDs were generated with timestamps larger than the value to which the clock was set, then the clock sequence has to be changed.
         /// If the previous value of the clock sequence is known, it can just be incremented; otherwise it should be set to a random or high-quality pseudo-random value.
         /// </summary>
-        private static readonly byte GuidClockSequenceByte = 8;
+        private const byte GuidClockSequenceByte = 8;
 
         /// <summary>
         /// Identifica o gerador do Guid (neste caso vamos usar random). Segundo o RFC-4122
@@ -97,7 +97,7 @@ namespace Lesula.Cassandra.Helpers
         /// For systems with no IEEE address, a randomly or pseudo-randomly generated value may be used; see Section 4.5.  The multicast bit must 
         /// be set in such addresses, in order that they will never conflict with addresses obtained from network cards.
         /// </summary>
-        private static readonly byte NodeByte = 10;
+        private const byte NodeByte = 10;
 
         /// <summary>
         /// Offset to move from 1/1/0001, which is 0-time for .NET, to gregorian 0-time of 10/15/1582
@@ -112,12 +112,12 @@ namespace Lesula.Cassandra.Helpers
         /// <summary>
         /// seed used for datetime
         /// </summary>
-        private static DateTimePrecise dateTimeSeed;
+        private static readonly DateTimePrecise DateTimeSeed;
 
         /// <summary>
         /// Gerador de números aleatórios.
         /// </summary>
-        private static Random random = new Random();
+        private static readonly Random Random = new Random();
 
         /// <summary>
         /// Initializes static members of the <see cref="GuidGenerator"/> class.
@@ -125,8 +125,8 @@ namespace Lesula.Cassandra.Helpers
         static GuidGenerator()
         {
             RandomNode = new byte[6];
-            random.NextBytes(RandomNode);
-            dateTimeSeed = new DateTimePrecise(10);
+            Random.NextBytes(RandomNode);
+            DateTimeSeed = new DateTimePrecise(10);
         }
 
         /// <summary>
@@ -175,7 +175,7 @@ namespace Lesula.Cassandra.Helpers
         /// </returns>
         public static Guid GenerateTimeBasedGuid()
         {
-            return GenerateTimeBasedGuid(dateTimeSeed.UtcNow, RandomNode);
+            return GenerateTimeBasedGuid(DateTimeSeed.UtcNow, RandomNode);
         }
 
         /// <summary>

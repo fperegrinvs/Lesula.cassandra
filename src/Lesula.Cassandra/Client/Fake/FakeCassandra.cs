@@ -18,7 +18,7 @@
     {
         private static Dictionary<string, FakeKeyspace> database;
         private static Dictionary<string, List<string>> keyspaces;
-        private static string currentKeyspace;
+        private string currentKeyspace;
         private static long version = 1;
 
         static FakeCassandra()
@@ -30,7 +30,6 @@
         {
             database = new Dictionary<string, FakeKeyspace>();
             keyspaces = new Dictionary<string, List<string>>();
-            currentKeyspace = string.Empty;
             version = 1;
         }
 
@@ -223,16 +222,17 @@
         /// </summary>
         public void insert(byte[] key, ColumnParent column_parent, Column column, ConsistencyLevel consistency_level)
         {
-            try
+            if (database[this.currentKeyspace].ContainsKey(column_parent.Column_family)
+                && database[this.currentKeyspace][column_parent.Column_family].Contains(key)
+                && database[this.currentKeyspace][column_parent.Column_family][key].ContainsKey(column.Name))
             {
-                var path = new ColumnPath { Column = column.Name, Column_family = column_parent.Column_family };
-                var current = this.get(key, path, consistency_level);
+                var current = database[this.currentKeyspace][column_parent.Column_family][key][column.Name];
                 if (column.Timestamp > current.Column.Timestamp)
                 {
                     current.Column.Value = column.Value;
                 }
             }
-            catch (NotFoundException)
+            else
             {
                 this.CheckKeyspace();
                 var cosc = new ColumnOrSuperColumn { Column = column };
@@ -319,7 +319,7 @@
             {
                 if (!database[currentKeyspace][column_path.Column_family][key].ContainsKey(column_path.Column))
                 {
-                   throw new Exception("column not found!");
+                    throw new Exception("column not found!");
                 }
 
                 database[currentKeyspace][column_path.Column_family][key].Remove(column_path.Column);
@@ -419,7 +419,7 @@
         /// </summary>
         public List<KsDef> describe_keyspaces()
         {
-            throw new NotImplementedException();
+            return database.Values.Select(keyspace => keyspace.Definitions).ToList();
         }
 
         /// <summary>
@@ -427,7 +427,7 @@
         /// </summary>
         public string describe_cluster_name()
         {
-            throw new NotImplementedException();
+            return "Fake Cluster";
         }
 
         /// <summary>
@@ -502,7 +502,7 @@
 
             if (database[cf_def.Keyspace].ContainsKey(cf_def.Name))
             {
-                throw new InvalidRequestException(){ Why = "Column Family Already Exists" };
+                throw new InvalidRequestException() { Why = "Column Family Already Exists" };
             }
 
             database[cf_def.Keyspace][cf_def.Name] = new FakeSSTable { Definition = cf_def };
@@ -550,7 +550,7 @@
         {
             if (database.ContainsKey(ks_def.Name))
             {
-                throw new InvalidRequestException(){ Why = "Keyspace already exists." };
+                throw new InvalidRequestException() { Why = "Keyspace already exists." };
             }
 
             var ksName = ks_def.Name;

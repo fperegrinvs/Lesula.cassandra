@@ -61,8 +61,13 @@
         /// <returns>
         /// Array de bytes
         /// </returns>
-        public static byte[] FromHexString(string s)
+        public static byte[] FromHexString(this string s)
         {
+            if (s.Length % 2 == 1)
+            {
+                s = "0" + s;
+            }
+
             var chars = s.ToCharArray();
             var u = chars.Length;
             var bytes = new byte[u / 2];
