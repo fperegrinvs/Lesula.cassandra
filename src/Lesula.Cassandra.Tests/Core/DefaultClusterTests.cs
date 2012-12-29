@@ -2,8 +2,11 @@
 {
     using System;
     using System.Collections.Generic;
+    using System.Threading.Tasks;
 
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
     using Lesula.Cassandra.Cluster.Impl;
     using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
@@ -42,7 +45,7 @@
 
             for (int i = 0; i < 100; i++)
             {
-                IClient client = cluster.Borrow();
+                var client = cluster.Borrow();
                 cluster.Release(client);
             }
         }
@@ -65,6 +68,16 @@
         public override T Execute<T>(ExecutionBlock<T> executionBlock)
         {
             return default(T);
+        }
+
+        public override T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException();
         }
 
         public override string getClusterName()

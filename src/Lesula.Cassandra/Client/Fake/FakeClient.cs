@@ -2,8 +2,12 @@
 {
     using System;
     using System.Reflection;
+    using System.Threading.Tasks;
 
     using Apache.Cassandra;
+
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
 
     /// <summary>
     /// Cliente fake para testes com o cassandra
@@ -107,6 +111,16 @@
                 Exception inner = ex.InnerException;
                 throw DefaultClient.BuildException(inner);
             }
+        }
+
+        public override T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException("This method is for CQL clients only.");
+        }
+
+        public override string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException("This method is for CQL clients only.");
         }
 
         /// <summary>

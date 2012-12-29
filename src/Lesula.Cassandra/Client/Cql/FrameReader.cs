@@ -23,25 +23,28 @@ namespace Lesula.Cassandra.Client.Cql
     using Lesula.Cassandra.Client.Cql.Exceptions;
     using Lesula.Cassandra.Client.Cql.Extensions;
 
-    internal class FrameReader : IFrameReader,
-                                 IDisposable
+    internal class FrameReader : IFrameReader, IDisposable
     {
+        private const byte VersionMask = 0x7F;
+
+        internal static byte ProtocolVersion = 0x01;
+
         private readonly Stream ms;
 
-        private FrameReader(Stream stream, bool streaming)
+        private FrameReader(CqlMessageHeader header, Stream stream, bool streaming)
         {
-            this.MessageOpcode = (CqlOperation)stream.ReadByte();
-            int bodyLen = stream.ReadInt();
+            this.MessageOpcode = header.Operation;
+
             if (streaming)
             {
-                this.ms = new WindowedReadStream(stream, bodyLen);
+                this.ms = new WindowedReadStream(stream, header.Size);
             }
             else
             {
-                byte[] buffer = new byte[bodyLen];
-                if (0 < bodyLen)
+                var buffer = new byte[header.Size];
+                if (0 < header.Size)
                 {
-                    stream.Read(buffer, 0, bodyLen);
+                    stream.Read(buffer, 0, header.Size);
                     this.ms = new MemoryStream(buffer);
                 }
             }
@@ -49,7 +52,9 @@ namespace Lesula.Cassandra.Client.Cql
             if (CqlOperation.Error == this.MessageOpcode)
             {
                 using (this)
+                {
                     this.ThrowError();
+                }
             }
         }
 
@@ -100,27 +105,57 @@ namespace Lesula.Cassandra.Client.Cql
             return this.ms.ReadStringMultimap();
         }
 
-        public static FrameReader ReadBody(Stream stream, bool streaming)
+        public static FrameReader ReadBody(CqlMessageHeader header, Stream stream, bool streaming)
         {
-            return new FrameReader(stream, streaming);
+            return new FrameReader(header, stream, streaming);
         }
 
-        public static byte ReadStreamId(Stream stream)
+        public static T ReadResult<T>(CqlMessageHeader header, Stream stream, ICqlObjectBuilder<T> buider)
         {
-            FrameType version = (FrameType)stream.ReadByte();
-            if (0 == (version & FrameType.Response))
+            var responseType = (CqlResultKind)stream.ReadInt();
+            switch (responseType)
+            {
+                case CqlResultKind.SchemaChange:
+                case CqlResultKind.SetKeyspace:
+                case CqlResultKind.Rows:
+                case CqlResultKind.Prepared:
+                case CqlResultKind.Void:
+                    break;
+            }
+
+            var buffer = new byte[header.Size - 4];
+            stream.Read(buffer, 0, buffer.Length);
+            return default(T);
+        }
+
+
+        public static CqlMessageHeader ProcessHeader(byte[] headerBytes)
+        {
+            var header = new CqlMessageHeader();
+
+            if (headerBytes.Length != 8)
+            {
+                throw new ArgumentException("Invalid Header");
+            }
+
+            var version = headerBytes[0];
+            if (0 == (version & (byte)MessageDirection.Response))
             {
                 throw new ArgumentException("Expecting response frame");
             }
-            if (FrameType.ProtocolVersion != (version & FrameType.ProtocolVersionMask))
+
+            header.Direction = MessageDirection.Response;
+            header.Version = (byte)(version & VersionMask);
+            if (header.Version != ProtocolVersion)
             {
                 throw new ArgumentException("Unknown protocol version");
             }
 
-            var flags = (FrameHeaderFlags)stream.ReadByte();
-
-            byte streamId = (byte)stream.ReadByte();
-            return streamId;
+            header.Flags = (CqlHeaderFlags)headerBytes[1];
+            header.StreamId = headerBytes[2];
+            header.Operation = (CqlOperation)headerBytes[3];
+            header.Size = BitConverter.ToInt32(headerBytes, 4).ReverseBytes();
+            return header;
         }
 
         private void ThrowError()

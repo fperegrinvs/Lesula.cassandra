@@ -20,14 +20,14 @@ namespace Lesula.Cassandra.Client.Cql
 
     internal class WindowedReadStream : Stream
     {
-        private readonly Stream _baseStream;
+        private readonly Stream baseStream;
 
-        private int _len;
+        private int len;
 
         public WindowedReadStream(Stream baseStream, int len)
         {
-            this._baseStream = baseStream;
-            this._len = len;
+            this.baseStream = baseStream;
+            this.len = len;
         }
 
         protected override void Dispose(bool disposing)
@@ -35,10 +35,10 @@ namespace Lesula.Cassandra.Client.Cql
             if (disposing)
             {
                 // skip unread data
-                while (0 < this._len)
+                while (0 < this.len)
                 {
-                    --this._len;
-                    this._baseStream.ReadByte();
+                    --this.len;
+                    this.baseStream.ReadByte();
                 }
             }
         }
@@ -86,13 +86,13 @@ namespace Lesula.Cassandra.Client.Cql
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            this._len -= count;
-            if (this._len < 0)
+            this.len -= count;
+            if (this.len < 0)
             {
                 throw new IOException("Reading past out of window");
             }
 
-            int read = this._baseStream.Read(buffer, offset, count);
+            int read = this.baseStream.Read(buffer, offset, count);
             if (count != read)
             {
                 throw new IOException("Unexpected read count");

@@ -230,7 +230,7 @@ namespace Lesula.Cassandra.Configuration
         private IClientPool BuildSizeKeyspaceControlledClientPool(CassandraClusterElement clusterConfig, string clusterName)
         {
             int intTempValue = 0;
-            var poolFactory = new SizeKeyspaceControlledClientPoolFactory();
+            var poolFactory = new SizeControlledClientPoolFactory<SizeKeyspaceControlledClientPool>();
             poolFactory.Name = string.Concat(clusterName, "_sizeKeyspaceControlledPool");
             poolFactory.ClientFactory = this.buildClientFactory(clusterConfig);
             poolFactory.EndpointManager = this.BuildEndpointManager(clusterConfig, poolFactory.Name);

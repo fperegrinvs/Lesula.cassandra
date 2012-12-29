@@ -20,9 +20,12 @@
 namespace Lesula.Cassandra.Cluster.Impl
 {
     using System;
+    using System.Threading.Tasks;
 
     using Lesula.Cassandra;
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
     using Lesula.Cassandra.Connection.Pooling;
     using Lesula.Cassandra.Exceptions;
 
@@ -49,6 +52,12 @@ namespace Lesula.Cassandra.Cluster.Impl
             return this.PoolManager.Borrow();
         }
 
+        public string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl)
+        {
+            var client = this.PoolManager.Borrow();
+            return client.ExecuteNonQueryAsync(cql, cl);
+        }
+
         public IClient Borrow(string keyspaceName)
         {
             IClient client = this.PoolManager.Borrow(keyspaceName);
@@ -70,6 +79,12 @@ namespace Lesula.Cassandra.Cluster.Impl
             this.PoolManager.Invalidate(client);
         }
 
+        public T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl)
+        {
+            var client = this.PoolManager.Borrow();
+            return client.QueryAsync(cql, builder, cl);
+        }
+
         public T Execute<T>(ExecutionBlock<T> executionBlock, string keyspaceName)
         {
             T rtnObject = default(T);
@@ -81,7 +96,7 @@ namespace Lesula.Cassandra.Cluster.Impl
                 exception = null;
                 noException = false;
                 bool isClientHealthy = true;
-                IClient client = this.BorrowClient(keyspaceName);
+                var client = this.BorrowClient(keyspaceName);
 
                 if (client == null)
                 {

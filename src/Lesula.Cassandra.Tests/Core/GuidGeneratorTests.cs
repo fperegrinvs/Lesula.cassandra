@@ -20,7 +20,7 @@
         [TestMethod]
         public void GenerateTimeBasedGuidTest2()
         {
-            const int cycles = 100;
+            const int cycles = 50;
 
             var generatedGuids = new HashSet<Guid>();
             for (int i = 0; i < cycles; i++)

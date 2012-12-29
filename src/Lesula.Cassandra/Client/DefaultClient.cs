@@ -3,10 +3,13 @@
     using System;
     using System.IO;
     using System.Reflection;
+    using System.Threading.Tasks;
 
     using Apache.Cassandra;
 
     using Lesula.Cassandra;
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
     using Lesula.Cassandra.Exceptions;
 
     using Thrift;
@@ -98,6 +101,11 @@
             return false;
         }
 
+        public override string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException("This method is for CQL clients only.");
+        }
+
         public override string getClusterName()
         {
             if (this.disposed)
@@ -137,6 +145,11 @@
                 Exception inner = ex.InnerException;
                 throw BuildException(inner);
             }
+        }
+
+        public override T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl)
+        {
+            throw new NotImplementedException("This method is for CQL clients only.");
         }
 
         internal static ExecutionBlockException BuildException(Exception exception)

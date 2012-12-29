@@ -39,7 +39,7 @@ namespace Lesula.Cassandra.Client.Cql.Enumerators
     ///  The rest of the flags is currently unused and ignored.
     /// </summary>
     [Flags]
-    internal enum FrameHeaderFlags : byte
+    public enum CqlHeaderFlags : byte
     {
         None = 0x00,
 

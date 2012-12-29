@@ -6,7 +6,6 @@
     using System.Text;
     using System.Threading;
 
-    using Lesula.Cassandra.Client;
     using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Exceptions;
@@ -35,7 +34,7 @@
         public RoundRobinEndpointManager()
         {
             this.blackListedEndpoints = new HashSet<IEndpoint>();
-            this.endpointRecoveryTimer = new Timer(new TimerCallback(this.EndpointRecoveryMethod), null, Timeout.Infinite, Timeout.Infinite);
+            this.endpointRecoveryTimer = new Timer(this.EndpointRecoveryMethod, null, Timeout.Infinite, Timeout.Infinite);
         }
 
         public IConnectionFactory ClientFactory { private get; set; }
@@ -44,25 +43,27 @@
 
         public List<IEndpoint> Endpoints
         {
-            get { return endpoints; }
+            get
+            {
+                return this.endpoints;
+            }
+
             set
             {
-                endpoints = value;
+                this.endpoints = value;
                 this.availableEndpoints = new ConcurrentBag<IEndpoint>(this.endpoints);
             }
         }
 
         public IEndpoint Pick()
         {
-            IEndpoint borrowedEndpoint = null;
+            IEndpoint borrowedEndpoint;
             do
             {
-                borrowedEndpoint = null;
-
                 if (!this.availableEndpoints.TryTake(out borrowedEndpoint))
                 {
-                    StringBuilder sb = new StringBuilder();
-                    foreach (IEndpoint endpoint in this.Endpoints)
+                    var sb = new StringBuilder();
+                    foreach (var endpoint in this.Endpoints)
                     {
                         if (sb.Length > 0)
                         {
@@ -72,7 +73,7 @@
                         sb.Append(endpoint.ToString());
                     }
 
-                    string error = string.Format("All endpoints ['{0}'] are blacklisted, cluster is down?", sb.ToString());
+                    var error = string.Format("All endpoints ['{0}'] are blacklisted, cluster is down?", sb.ToString());
                     throw new AquilesException(error);
                 }
 
@@ -84,9 +85,8 @@
                 {
                     this.availableEndpoints.Add(borrowedEndpoint);
                 }
-
             }
- while ((borrowedEndpoint == null));
+            while (borrowedEndpoint == null);
 
             return borrowedEndpoint;
         }
@@ -100,9 +100,6 @@
                     this.blackListedEndpoints.Add(endpoint);
                 }
             }
-
-            //this.monitor.Decrement(AquilesMonitorFeature.NumberOfActiveEndpoints);
-            //this.monitor.Increment(AquilesMonitorFeature.NumberOfBannedEndpoints);
         }
 
         #endregion
@@ -141,10 +138,9 @@
             {
                 lock (this.blackListedEndpoints)
                 {
-
                     isBlackListed = this.blackListedEndpoints.Contains(borrowedEndpoint);
                     //TODO hacer esto afuera del lock y si isblacklisted = true
-                    this.startTimer(this.DueTime);
+                    this.StartTimer(this.DueTime);
                 }
             }
 
@@ -157,7 +153,7 @@
             bool areThereLeftBehind = false;
 
             // need to stop the time to avoid 2 methods run concurrent
-            this.stopTimer();
+            this.StopTimer();
             try
             {
                 HashSet<IEndpoint> clonedBlackList = null;
@@ -166,13 +162,12 @@
                     clonedBlackList = new HashSet<IEndpoint>(this.blackListedEndpoints);
                 }
 
-                bool isUp = false;
-                
                 // now i can work without problems
-                foreach (IEndpoint endpoint in clonedBlackList)
+                foreach (var endpoint in clonedBlackList)
                 {
-                    IClient cassandraClient = this.ClientFactory.Create(endpoint, null);
+                    var cassandraClient = this.ClientFactory.Create(endpoint, null);
 
+                    bool isUp;
                     try
                     {
                         cassandraClient.Open();
@@ -214,12 +209,12 @@
                 if (wasProperlyFinished && areThereLeftBehind)
                 {
                     // i should reactive myself again 
-                    this.startTimer(this.PeriodicTime);
+                    this.StartTimer(this.PeriodicTime);
                 }
                 else if (!wasProperlyFinished)
                 {
                     // damn, i want my revenge!
-                    this.startTimer(this.DueTime);
+                    this.StartTimer(this.DueTime);
                 }
                 else
                 {
@@ -228,12 +223,12 @@
             }
         }
 
-        private void stopTimer()
+        private void StopTimer()
         {
             this.endpointRecoveryTimer.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
-        private void startTimer(int dueTime)
+        private void StartTimer(int dueTime)
         {
             this.endpointRecoveryTimer.Change(dueTime, Timeout.Infinite);
         }

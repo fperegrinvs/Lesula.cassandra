@@ -1,56 +1,17 @@
-﻿namespace Lesula.Cassandra.Client.CQL
+﻿namespace Lesula.Cassandra.Client.Cql
 {
     using System;
-    using System.Collections.Concurrent;
-    using System.Collections.Generic;
     using System.IO;
-    using System.Linq;
-    using System.Net.Sockets;
     using System.Threading;
-    using System.Threading.Tasks;
 
-    using Lesula.Cassandra.Client.Cql;
     using Lesula.Cassandra.Client.Cql.Enumerators;
-    using Lesula.Cassandra.Client.Cql.Exceptions;
-    using Lesula.Cassandra.Connection.Pooling;
-    using Lesula.Cassandra.Model;
 
     public class CqlClient : AbstractClient
     {
         /// <summary>
-        ///  A frame has a stream id (one signed byte). When sending request messages, this
-        ///  stream id must be set by the client to a positive byte (negative stream id
-        ///  are reserved for streams initiated by the server; currently all EVENT messages
-        ///  (section 4.2.6) have a streamId of -1). If a client sends a request message
-        ///  with the stream id X, it is guaranteed that the stream id of the response to
-        ///  that message will be X.
-        ///
-        ///  This allow to deal with the asynchronous nature of the protocol. If a client
-        ///  sends multiple messages simultaneously (without waiting for responses), there
-        ///  is no guarantee on the order of the responses. For instance, if the client
-        ///  writes REQ_1, REQ_2, REQ_3 on the wire (in that order), the server might
-        ///  respond to REQ_3 (or REQ_2) first. Assigning different stream id to these 3
-        ///  requests allows the client to distinguish to which request an received answer
-        ///  respond to. As there can only be 128 different simultaneous stream, it is up
-        ///  to the client to reuse stream id.
-        ///
-        ///  Note that clients are free to use the protocol synchronously (i.e. wait for
-        ///  the response to REQ_N before sending REQ_N+1). In that case, the stream id
-        ///  can be safely set to 0. Clients should also feel free to use only a subset of
-        ///  the 128 maximum possible stream ids if it is simpler for those
-        ///  implementation.
+        /// The stream id
         /// </summary>
-        private ConcurrentBag<byte> AvailableStreamIds { get; set; }
-
-        /// <summary>
-        /// Request States
-        /// </summary>
-        private readonly RequestState[] RequestStates = new RequestState[MaxStreams];
-
-        /// <summary>
-        /// Maximum possible stream ids
-        /// </summary>
-        private const byte MaxStreams = 128;
+        private byte StreamId { get; set; }
 
         /// <summary>
         /// The input stream
@@ -63,208 +24,88 @@
         private Stream OutputStream { get; set; }
 
         /// <summary>
-        /// Tcp client
+        /// Current Message Header
         /// </summary>
-        private TcpClient TcpClient { get; set; }
+        public CqlMessageHeader Header { get; set; }
+
+        public bool IsBusy { get; set; }
 
         /// <summary>
-        /// The client endpoint
+        /// Event fired when the client is available for new requests
         /// </summary>
-        private IEndpoint Endpoint { get; set; }
+        public event Action Available;
 
         /// <summary>
-        /// The owner pool
+        /// Used to block and release threads manually.
         /// </summary>
-        private IClientPool OwnerPool { get; set; }
+        private readonly ManualResetEvent callerBlocker = new ManualResetEvent(true);
 
-        private CqlConfig Config { get; set; }
+        /// <summary>
+        /// Used to block and release threads manually.
+        /// </summary>
+        private readonly ManualResetEvent readerBlocker = new ManualResetEvent(true);
 
         /// <summary>
         /// Initializes a new instance of the <see cref="CqlClient"/> class.
         /// </summary>
-        /// <param name="endpoint">
-        /// The endpoint.
+        /// <param name="id">
+        /// The id.
         /// </param>
-        /// <param name="ownerPool">
-        /// The owner pool.
+        /// <param name="inputStream">
+        /// The input stream.
         /// </param>
-        /// <param name="config">
-        /// The config.
+        /// <param name="outputStream">
+        /// The output stream.
         /// </param>
-        public CqlClient(IEndpoint endpoint, IClientPool ownerPool, CqlConfig config)
+        public CqlClient(byte id, Stream inputStream, Stream outputStream)
         {
-            // Initialize list of available ids
-            this.AvailableStreamIds = new ConcurrentBag<byte>();
-            for (byte i = 0; i < MaxStreams; i++)
-            {
-                this.AvailableStreamIds.Add(i);
-                this.RequestStates[i].Lock = new object();
-            }
-
-            this.Config = config;
-            this.Endpoint = endpoint;
-            this.OwnerPool = ownerPool;
-            this.TcpClient = new TcpClient();
-            this.TcpClient.Connect(endpoint.Address, endpoint.Port);
-
-            Stream stream = this.TcpClient.GetStream();
-            this.InputStream = stream;
-            this.OutputStream = stream;
-
-            this.Startup();
+            this.IsBusy = false;
+            this.StreamId = id;
+            this.InputStream = inputStream;
+            this.OutputStream = outputStream;
         }
 
         /// <summary>
-        ///  Initialize the connection. The server will respond by either a READY message
-        ///  (in which case the connection is ready for queries) or an AUTHENTICATE message
-        ///  (in which case credentials will need to be provided using CREDENTIALS).
-        ///
-        ///  This must be the first message of the connection, except for OPTIONS that can
-        ///  be sent before to find out the options supported by the server. Once the
-        ///  connection has been initialized, a client should not send any more STARTUP
-        ///  message.
-        ///
-        ///  The body is a [string map] of options. Possible options are:
-        ///    - "CQL_VERSION": the version of CQL to use. This option is mandatory and
-        ///      currenty, the only version supported is "3.0.0". Note that this is
-        ///      different from the protocol version.
-        ///    - "COMPRESSION": the compression algorithm to use for frames (See section 5).
-        ///      This is optional, if not specified no compression will be used.
+        /// The read response.
         /// </summary>
-        /// <returns></returns>
-        private void Startup()
+        /// <param name="message">
+        /// The message.
+        /// </param>
+        internal void ReadResponse(CqlMessageHeader message)
         {
-            Action<IFrameWriter> writer = fw => WriteReady(fw, this.Config.CqlVersion);
-            Func<IFrameReader, IEnumerable<object>> reader = fr => new object[] { ReadReady(fr) };
-            bool authenticate = this.Execute(writer, reader).Result.Cast<bool>().Single();
-            if (authenticate)
+            if (message.StreamId != this.StreamId)
             {
-                throw new NotImplementedException("Authentication not supported yet!");
-            }
-        }
-
-        internal static bool ReadReady(IFrameReader frameReader)
-        {
-            switch (frameReader.MessageOpcode)
-            {
-                case CqlOperation.Ready:
-                    return false;
-
-                case CqlOperation.Credentials:
-                    return true;
-
-                default:
-                    throw new UnknownResponseException(frameReader.MessageOpcode);
-            }
-        }
-
-        internal static void WriteReady(IFrameWriter frameWriter, string cqlVersion)
-        {
-            var options = new Dictionary<string, string> { { "CQL_VERSION", cqlVersion } };
-
-            frameWriter.WriteStringMap(options);
-            frameWriter.Send(CqlOperation.Startup);
-        }
-
-        public Task<IEnumerable<object>> Execute(Action<IFrameWriter> writer, Func<IFrameReader, IEnumerable<object>> reader)
-        {
-            byte streamId;
-            while (!this.AvailableStreamIds.TryTake(out streamId))
-            {
-                Thread.Sleep(100);
+                throw new ArgumentException("wrong streamId");
             }
 
-            // startup a new read task
-            //_currReadTask = null != _currReadTask
-            //                        ? _currReadTask.ContinueWith(_ => ReadNextFrameHeader())
-            //                        : 
-            Task.Factory.StartNew(this.ReadNextFrameHeader);
-
-            // start the async request
-            var taskWrite = Task.Factory.StartNew(() => this.WriteNextFrame(writer, reader, streamId));
-            return taskWrite;
-        }
-
-        private void ReadNextFrameHeader()
-        {
-            try
+            if (message.Direction == MessageDirection.Request)
             {
-                // read stream id - we are the only one reading so no lock required
-                byte streamId = FrameReader.ReadStreamId(this.InputStream);
-
-                // acquire request lock
-                lock (this.RequestStates[streamId].Lock)
-                {
-                    // flip the status flag (write barrier in Pulse below)
-                    this.RequestStates[streamId].ReadBegan = true;
-
-                    // hand off the reading of the body to the request handler
-                    Monitor.Pulse(this.RequestStates[streamId].Lock);
-
-                    // wait for request handler to complete
-                    Monitor.Wait(this.RequestStates[streamId].Lock);
-                }
+                throw new ArgumentException("Received a request message instead of a Response one.");
             }
-            catch (Exception ex)
-            {
-                throw ex;
-            }
-        }
 
-        private IEnumerable<object> StreamResultsThenReleaseStreamId(Func<FrameReader, IEnumerable<object>> reader, byte streamId)
-        {
-            // we are completely client side there (ie: running on the thread of the client)
-            // we have first to grab the request lock to avoid a race with async reader
-            // and find if the async reader has started to read the frame
-            lock (this.RequestStates[streamId].Lock)
-            {
-                try
-                {
-                    // if the reader has not read this stream id then just wait for a notification
-                    if (!this.RequestStates[streamId].ReadBegan)
-                    {
-                        Monitor.Wait(this.RequestStates[streamId].Lock);
-                    }
+            this.Header = message;
 
-                    // release stream id (since result streaming has started)
-                    this.AvailableStreamIds.Add(streamId);
-
-
-                    // yield all rows - no lock required on input stream since we are the only one allowed to read
-                    using (FrameReader frameReader = FrameReader.ReadBody(this.InputStream, this.Config.Streaming))
-                    {
-                        foreach (object row in reader(frameReader) ?? Enumerable.Empty<object>())
-                        {
-                            yield return row;
-                        }
-                    }
-                }
-                finally
-                {
-                    // wake up the async reader
-                    this.RequestStates[streamId].ReadBegan = false;
-                    Monitor.Pulse(this.RequestStates[streamId].Lock);
-                }
-            }
-        }
-
-        private IEnumerable<object> WriteNextFrame(Action<IFrameWriter> writer, Func<IFrameReader, IEnumerable<object>> reader, byte streamId)
-        {
-
-
-            using (FrameWriter frameWriter = new FrameWriter(this.OutputStream, streamId))
-                writer(frameWriter);
-
-
-            // return a promise to stream results
-            return StreamResultsThenReleaseStreamId(reader, streamId);
+            // Release the caller thread to process the results
+            this.callerBlocker.Set();
+            this.readerBlocker.WaitOne();
         }
 
         #region Overrides of AbstractClient
 
-        public override string KeyspaceName { get; set; }
+        public override string KeyspaceName
+        {
+            get
+            {
+                throw new NotImplementedException("This method is for thrift clients only.");
+            }
 
-        private bool isOpen = false;
+            set
+            {
+                throw new NotImplementedException("This method is for thrift clients only.");
+            }
+        }
+
+        private bool isOpen;
 
         public override void Open()
         {
@@ -273,7 +114,7 @@
 
         public override void Close()
         {
-            throw new System.NotImplementedException();
+            this.isOpen = false;
         }
 
         public override bool IsOpen()
@@ -283,7 +124,76 @@
 
         public override T Execute<T>(ExecutionBlock<T> executionBlock)
         {
-            throw new System.NotImplementedException();
+            throw new NotImplementedException("This method is for thrift clients only.");
+        }
+
+        public override T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl)
+        {
+            this.BeginRequest(cql, cl);
+
+            try
+            {
+                var results = this.ProcessResponse(builder);
+                this.EndRequest();
+                return results;
+            }
+            catch (Exception)
+            {
+                this.EndRequest();
+                throw;
+            }
+        }
+
+        private T ProcessResponse<T>(ICqlObjectBuilder<T> buider)
+        {
+            switch (this.Header.Operation)
+            {
+                case CqlOperation.Result:
+                    return FrameReader.ReadResult(this.Header, this.InputStream, buider);
+                case CqlOperation.Ready:
+                case CqlOperation.Authenticate:
+                case CqlOperation.Supported:
+                    FrameReader.ReadBody(this.Header, this.InputStream, true);
+                    throw new ArgumentException("Invalid response");
+                case CqlOperation.Error:
+                    // will throw exception
+                    FrameReader.ReadBody(this.Header, this.InputStream, true);
+                    throw new Exception("Unknown exception");
+                default:
+                    FrameReader.ReadBody(this.Header, this.InputStream, true);
+                    throw new ArgumentException("Invalid response");
+            }
+        }
+
+        public override string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl)
+        {
+            return this.QueryAsync<string>(cql, null, cl);
+        }
+
+        private void BeginRequest(string cql, CqlConsistencyLevel cl)
+        {
+            // set as busy.
+            this.IsBusy = true;
+
+            // hold the reader thread to avoid anyone reading the stream
+            this.readerBlocker.Reset();
+
+            // query cassandra
+            var writer = new FrameWriter(this.OutputStream, this.StreamId);
+            writer.SendQuery(cql, cl, CqlOperation.Query);
+
+            // block this thread to wait for response (the response will unblock this thread)
+            this.callerBlocker.Reset();
+
+            // waits for respose
+            this.callerBlocker.WaitOne();
+        }
+
+        private void EndRequest()
+        {
+            // client is free again, release the reader
+            this.readerBlocker.Set();
+            this.IsBusy = false;
         }
 
         public override string getClusterName()
@@ -292,29 +202,5 @@
         }
 
         #endregion
-
-        private struct RequestState
-        {
-            public object Lock;
-
-            public bool ReadBegan;
-        }
-    }
-
-    public class CqlConfig
-    {
-        public int Port { get; set; }
-
-        public string Type { get; set; }
-
-        public bool Recoverable { get; set; }
-
-        public string User { get; set; }
-
-        public string Password { get; set; }
-
-        public string CqlVersion { get; set; }
-
-        public bool Streaming { get; set; }
     }
 }

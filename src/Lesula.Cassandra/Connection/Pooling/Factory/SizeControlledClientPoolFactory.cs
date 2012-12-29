@@ -2,7 +2,6 @@
 {
     using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
-    using Lesula.Cassandra.Connection.Pooling.Impl;
 
     public class SizeControlledClientPoolFactory<T> : IFactory<T> where T : ISizeControlledPool, new()
     {

@@ -6,63 +6,84 @@
     using System.Threading;
 
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Client.Cql;
     using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Exceptions;
-    using Lesula.Cassandra.Model;
 
+    /// <summary>
+    /// The default client pool for CQL binary protocol
+    /// </summary>
+    /// <remarks>
+    /// As CQL support multiple calls for each connection, each client does not represent a distinct connection but an stream inside a connection
+    /// </remarks>
     public class CqlDefaultClientPool : ISizeControlledPool
     {
         private volatile int managedClientQuantity;
-        private ConcurrentBag<IClient> idleClients;
-        private ConcurrentDictionary<IClient, byte> referencedClients;
+        private readonly ConcurrentBag<IClient> idleClients;
+        private readonly ConcurrentDictionary<IClient, byte> referencedClients;
         private int dueTime = Timeout.Infinite;
         private int periodicTime = Timeout.Infinite;
-        private Timer controlIdleClientSizeTimer;
+        private readonly Timer controlIdleClientSizeTimer;
 
         public int MinimumClientsToKeep
         {
             get;
             set;
         }
+
         public int MaximumClientsToSupport
         {
             get;
             set;
         }
+
         public int MagicNumber
         {
             get;
             set;
         }
+
         public int MaximumRetriesToPollClient
         {
             get;
             set;
         }
+
         public int DueTime
         {
-            get { return this.dueTime; }
+            get
+            {
+                return this.dueTime;
+            }
+
             set
             {
                 this.dueTime = value;
                 this.controlIdleClientSizeTimer.Change(this.dueTime, this.periodicTime);
             }
         }
+
         public int PeriodicTime
         {
-            get { return this.periodicTime; }
+            get
+            {
+                return this.periodicTime;
+            }
+
             set
             {
                 this.periodicTime = value;
                 this.controlIdleClientSizeTimer.Change(this.dueTime, this.periodicTime);
             }
         }
+
         public IEndpointManager EndpointManager
         {
             get;
             set;
         }
+
         public IConnectionFactory ClientFactory
         {
             get;
@@ -74,9 +95,12 @@
             this.managedClientQuantity = 0;
             this.referencedClients = new ConcurrentDictionary<IClient, byte>();
             this.idleClients = new ConcurrentBag<IClient>();
-            this.controlIdleClientSizeTimer = new Timer(this.controlIdleClientSizeMethod, null, Timeout.Infinite, Timeout.Infinite);
+            this.controlIdleClientSizeTimer = new Timer(this.ControlIdleClientSizeMethod, null, Timeout.Infinite, Timeout.Infinite);
         }
 
+        /// <summary>
+        /// Create the initial pool
+        /// </summary>
         public void Initialize()
         {
             this.CreateMinimumClients();
@@ -97,14 +121,14 @@
                     if (this.managedClientQuantity < this.MaximumClientsToSupport)
                     {
                         // i got no connection, need to retrieve a new one
-                        borrowedClient = CreateNewClient();
+                        borrowedClient = this.CreateNewClient();
                     }
                 }
                 else
                 {
                     if (!borrowedClient.IsOpen())
                     {
-                        this.destroy(borrowedClient);
+                        this.Destroy(borrowedClient);
                         borrowedClient = null;
                     }
                 }
@@ -113,9 +137,10 @@
                     // i got it, gonna mark as referenced 
                     this.MarkAsReferenced(borrowedClient);
                 }
+
                 retryCount++;
-            } while ((retryCount < this.MaximumRetriesToPollClient)
-                && (borrowedClient == null));
+            }
+            while ((retryCount < this.MaximumRetriesToPollClient) && (borrowedClient == null));
 
             return borrowedClient;
         }
@@ -130,11 +155,11 @@
         {
             this.UnmarkAsReferenced(client);
             this.EndpointManager.Ban(client.Endpoint);
-            this.destroy(client);
+            this.Destroy(client);
         }
         #endregion
 
-        private void destroy(IClient client)
+        private void Destroy(IClient client)
         {
             client.Close();
             this.managedClientQuantity--;
@@ -166,11 +191,11 @@
         private IClient CreateNewClient()
         {
             this.managedClientQuantity++;
-            IClient borrowedClient = null;
-            IEndpoint endpoint = null;
+            IClient borrowedClient;
+
             do
             {
-                endpoint = this.EndpointManager.Pick();
+                var endpoint = this.EndpointManager.Pick();
                 if (endpoint != null)
                 {
                     borrowedClient = this.ClientFactory.Create(endpoint, this);
@@ -190,15 +215,16 @@
                     string message = string.Format("No endpoints available.");
                     throw new AquilesException(message);
                 }
-            } while (endpoint != null && borrowedClient == null);
+            }
+            while (borrowedClient == null);
 
             return borrowedClient;
         }
 
-        private void controlIdleClientSizeMethod(object state)
+        private void ControlIdleClientSizeMethod(object state)
         {
             // need to stop the time to avoid 2 methods run concurrent
-            this.stopTimer();
+            this.StopTimer();
             // i took half of the difference in order not to block for a long time the queue
             int difference = (this.MaximumClientsToSupport - this.MinimumClientsToKeep) / this.MagicNumber;
             try
@@ -219,13 +245,13 @@
                     HashSet<IClient>.Enumerator destroyerIterator = clientsToDestroy.GetEnumerator();
                     while (destroyerIterator.MoveNext())
                     {
-                        this.destroy(destroyerIterator.Current);
+                        this.Destroy(destroyerIterator.Current);
                     }
                 }
             }
             finally
             {
-                this.startTimer(this.periodicTime);
+                this.StartTimer(this.periodicTime);
             }
         }
 
@@ -246,12 +272,12 @@
             }
         }
 
-        private void stopTimer()
+        private void StopTimer()
         {
             this.controlIdleClientSizeTimer.Change(Timeout.Infinite, Timeout.Infinite);
         }
 
-        private void startTimer(int duetime)
+        private void StartTimer(int duetime)
         {
             this.controlIdleClientSizeTimer.Change(duetime, Timeout.Infinite);
         }

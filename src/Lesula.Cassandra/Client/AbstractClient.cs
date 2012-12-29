@@ -4,6 +4,8 @@
     using System.Globalization;
 
     using Lesula.Cassandra;
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
     using Lesula.Cassandra.Connection.Pooling;
     using Lesula.Cassandra.Model;
 
@@ -32,6 +34,10 @@
         public abstract bool IsOpen();
 
         public abstract T Execute<T>(ExecutionBlock<T> executionBlock);
+
+        public abstract T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl);
+
+        public abstract string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl);
 
         public abstract string getClusterName();
 

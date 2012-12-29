@@ -6,6 +6,8 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 
 namespace Lesula.Cassandra.Tests.Cql
 {
+    using Lesula.Cassandra.Client.Cql.Enumerators;
+
     /// <summary>
     /// Summary description for CqlBinaryTests
     /// </summary>
@@ -64,6 +66,7 @@ namespace Lesula.Cassandra.Tests.Cql
         {
             const string DefaultCluster = "CqlLesula";
             var client = AquilesHelper.RetrieveCluster(DefaultCluster);
+            client.ExecuteNonQueryAsync("USE mytest", CqlConsistencyLevel.ONE);
         }
     }
 }

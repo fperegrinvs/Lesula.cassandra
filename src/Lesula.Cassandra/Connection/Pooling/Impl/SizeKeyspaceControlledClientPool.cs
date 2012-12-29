@@ -11,7 +11,7 @@
     using Lesula.Cassandra.Exceptions;
     using Lesula.Cassandra.Model;
 
-    public class SizeKeyspaceControlledClientPool : IClientPool
+    public class SizeKeyspaceControlledClientPool : ISizeControlledPool
     {
         private const string system = "_sys";
         private volatile int managedClientQuantity;

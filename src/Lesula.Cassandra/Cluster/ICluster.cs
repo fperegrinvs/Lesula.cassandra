@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="ICluster.cs" company="Lesula MapReduce Framework - http://github.com/lstern/lesula">
+// <copyright file="ICluster.cs" company="Lesula MapReduce Framework - http://github.com/lstern/Lesula.cassandra">
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
 //   You may obtain a copy of the License at
@@ -19,12 +19,19 @@
 
 namespace Lesula.Cassandra.Cluster
 {
+    using System.Threading.Tasks;
+
     using Lesula.Cassandra;
 
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Client.Cql;
+    using Lesula.Cassandra.Client.Cql.Enumerators;
 
     public interface ICluster
     {
+        /// <summary>
+        /// Cluster name
+        /// </summary>
         string Name
         {
             get;
@@ -36,9 +43,15 @@ namespace Lesula.Cassandra.Cluster
         int MaximumRetries { get; set; }
 
         IClient Borrow();
-        IClient Borrow(string keyspaceName);
         void Release(IClient client);
         void Invalidate(IClient client);
+
+        // CQL
+        T QueryAsync<T>(string cql, ICqlObjectBuilder<T> builder, CqlConsistencyLevel cl);
+        string ExecuteNonQueryAsync(string cql, CqlConsistencyLevel cl);
+
+        // Thrift
+        IClient Borrow(string keyspaceName);
         T Execute<T>(ExecutionBlock<T> command);
         T Execute<T>(ExecutionBlock<T> command, string keyspaceName);
     }
