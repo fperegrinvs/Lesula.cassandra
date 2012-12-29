@@ -39,7 +39,7 @@ namespace Lesula.Cassandra.Configuration
             /// Buffered connection. It use binary protocol over buffered transport (This is faster than Default)
             /// </summary>
             BUFFERED = 1,
-            
+
             /// <summary>
             /// Framed connection. It use binary protocol over framed transport (if you are connecting to a nonblocking server (like Java's TNonblockingServer and THsHaServer) 
             /// </summary>
@@ -49,6 +49,11 @@ namespace Lesula.Cassandra.Configuration
             /// Fake connection, connect to a fake cassandra client, only used for tests
             /// </summary>
             FAKE = 3,
+
+            /// <summary>
+            /// Binary CQL Protocol
+            /// </summary>
+            CQL = 4,
         }
 
         private const string CONNECTIONFACTORY_TRANSPORT_BUFFER_SIZE_OPTION = "transportBufferSize";
@@ -68,8 +73,11 @@ namespace Lesula.Cassandra.Configuration
                 case ConnectionFactoryType.DEFAULT:
                     connectionFactory = buildDefaultConnectionFactory(clusterConfig);
                     break;
-                    case ConnectionFactoryType.FAKE:
+                case ConnectionFactoryType.FAKE:
                     connectionFactory = new FakeConnectionFactory();
+                    break;
+                case ConnectionFactoryType.CQL:
+                    connectionFactory = new CqlTransportFactory();
                     break;
                 default:
                     throw new NotImplementedException(string.Format("ConnectionFactoryType '{0}' not implemented.", connectionFactoryType));
@@ -104,4 +112,3 @@ namespace Lesula.Cassandra.Configuration
         }
     }
 }
-    

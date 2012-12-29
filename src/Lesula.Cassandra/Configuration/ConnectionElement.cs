@@ -17,6 +17,7 @@
             {
                 return (string) this["poolType"];
             }
+
             set
             {
                 this["poolType"] = value;

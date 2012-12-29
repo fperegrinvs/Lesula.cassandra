@@ -11,7 +11,7 @@
     using Lesula.Cassandra.Exceptions;
     using Lesula.Cassandra.Model;
 
-    public class SizeControlledClientPool : ISizeControlledPool
+    public class CqlDefaultClientPool : ISizeControlledPool
     {
         private volatile int managedClientQuantity;
         private ConcurrentBag<IClient> idleClients;
@@ -69,10 +69,10 @@
             set;
         }
 
-        public SizeControlledClientPool()
+        public CqlDefaultClientPool()
         {
             this.managedClientQuantity = 0;
-            this.referencedClients = new ConcurrentDictionary<IClient,byte>();
+            this.referencedClients = new ConcurrentDictionary<IClient, byte>();
             this.idleClients = new ConcurrentBag<IClient>();
             this.controlIdleClientSizeTimer = new Timer(this.controlIdleClientSizeMethod, null, Timeout.Infinite, Timeout.Infinite);
         }

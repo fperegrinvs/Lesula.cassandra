@@ -4,7 +4,7 @@
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Connection.Pooling.Impl;
 
-    public class SizeControlledClientPoolFactory : IFactory<SizeKeyspaceControlledClientPool>
+    public class SizeKeyspaceControlledClientPoolFactory : IFactory<SizeKeyspaceControlledClientPool>
     {
         private const int DEFAULTPERIODICTTIME = 5000; // 5 sec
 
@@ -13,7 +13,7 @@
         private const int DEFAULT_MAGIC_NUMBER = 7;
         private const int DEFAULT_MAXIMUM_RETRIES_TO_POLL_CLIENT = 0;
 
-        public SizeControlledClientPoolFactory()
+        public SizeKeyspaceControlledClientPoolFactory()
         {
             this.MinimumClientsToKeep = DEFAULT_MINIMUM_CLIENTS_TO_KEEP;
             this.MaximumClientsToSupport = DEFAULT_MAXIMUM_CLIENTS_TO_SUPPORT;

@@ -56,6 +56,7 @@
     <Compile Include="Core\DefaultClusterTests.cs" />
     <Compile Include="Core\EncoderTests.cs" />
     <Compile Include="Core\GuidGeneratorTests.cs" />
+    <Compile Include="Cql\CqlBinaryTests.cs" />
     <Compile Include="Front\DataDrivenTests.cs" />
     <Compile Include="Front\MutatorTests.cs" />
     <Compile Include="Front\StructureTests.cs" />

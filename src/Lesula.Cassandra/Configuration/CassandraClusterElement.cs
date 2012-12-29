@@ -27,6 +27,16 @@ namespace Lesula.Cassandra.Configuration
     public class CassandraClusterElement : ConfigurationElement
     {
         /// <summary>
+        /// Gets or sets the cluster type enum.
+        /// </summary>
+        public AbstractAquilesClusterBuilder.ClusterType ClusterTypeEnum { get; set; }
+
+        /// <summary>
+        /// Gets or sets the pool type enum.
+        /// </summary>
+        public AbstractAquilesClusterBuilder.PoolType PoolTypeEnum { get; set; }
+
+        /// <summary>
         /// get or set the Friendly name
         /// </summary>
         [ConfigurationProperty("friendlyName", DefaultValue = " ", IsRequired = true)]
@@ -50,7 +60,7 @@ namespace Lesula.Cassandra.Configuration
         /// <summary>
         /// get or set the Friendly name
         /// </summary>
-        [ConfigurationProperty("clusterType", DefaultValue = "DEFAULT", IsRequired = false)]
+        [ConfigurationProperty("clusterType", DefaultValue = "THRIFT", IsRequired = false)]
         [StringValidator(MinLength = 1, MaxLength = int.MaxValue)]
         public string ClusterType
         {

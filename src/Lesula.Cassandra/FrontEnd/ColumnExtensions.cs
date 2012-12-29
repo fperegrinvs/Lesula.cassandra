@@ -11,6 +11,26 @@
     public static class ColumnExtensions
     {
         /// <summary>
+        /// Initializes static members of the <see cref="ColumnExtensions"/> class.
+        /// </summary>
+        static ColumnExtensions()
+        {
+            const int T = 1;
+            byte[] buffer = BitConverter.GetBytes(T);
+            isLittleEndian = buffer[0] == 1;
+        }
+
+        private static readonly bool isLittleEndian;
+
+        public static void ReverseIfLittleEndian(this byte[] buffer)
+        {
+            if (isLittleEndian)
+            {
+                Array.Reverse(buffer);
+            }
+        }
+
+        /// <summary>
         /// Converte array de bytes para DateTime
         /// </summary>
         /// <param name="bytes">

@@ -4,7 +4,7 @@
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Connection.Pooling.Impl;
 
-    public class SizeKespaceControlledClientPoolFactory : IFactory<SizeControlledClientPool>
+    public class SizeControlledClientPoolFactory<T> : IFactory<T> where T : ISizeControlledPool, new()
     {
         private const int Defaultperiodicttime = 5000; // 5 sec
         private const int DefaultMinimumClientsToKeep = 10;
@@ -12,7 +12,7 @@
         private const int DefaultMagicNumber = 7;
         private const int DefaultMaximumRetriesToPollClient = 0;
 
-        public SizeKespaceControlledClientPoolFactory()
+        public SizeControlledClientPoolFactory()
         {
             this.MinimumClientsToKeep = DefaultMinimumClientsToKeep;
             this.MaximumClientsToSupport = DefaultMaximumClientsToSupport;
@@ -71,9 +71,9 @@
 
         #region IFactory<SizeControlledConnectionPool> Members
 
-        public SizeControlledClientPool Create()
+        public T Create()
         {
-            SizeControlledClientPool pool = new SizeControlledClientPool();
+            T pool = new T();
             pool.ClientFactory = this.ClientFactory;
             pool.EndpointManager = this.EndpointManager;
             pool.MagicNumber = this.MagicNumber;

@@ -144,6 +144,9 @@ namespace Lesula.Cassandra
                 clusters = new Dictionary<string, ICluster>(clusterCollection.Count);
                 foreach (CassandraClusterElement clusterConfig in section.CassandraClusters)
                 {
+                    clusterConfig.ClusterTypeEnum = (AbstractAquilesClusterBuilder.ClusterType)Enum.Parse(typeof(AbstractAquilesClusterBuilder.ClusterType), clusterConfig.ClusterType, true);
+                    clusterConfig.PoolTypeEnum = (AbstractAquilesClusterBuilder.PoolType)Enum.Parse(typeof(AbstractAquilesClusterBuilder.PoolType), clusterConfig.Connection.PoolType, true);
+
                     ICluster cluster;
                     try
                     {

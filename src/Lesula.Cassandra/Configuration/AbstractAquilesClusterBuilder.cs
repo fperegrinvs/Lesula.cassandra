@@ -30,6 +30,7 @@ namespace Lesula.Cassandra.Configuration
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Connection.Pooling;
     using Lesula.Cassandra.Connection.Pooling.Factory;
+    using Lesula.Cassandra.Connection.Pooling.Impl;
     using Lesula.Cassandra.Extensions;
     using Lesula.Cassandra.Model;
     using Lesula.Cassandra.Model.Impl;
@@ -38,7 +39,15 @@ namespace Lesula.Cassandra.Configuration
     {
         public enum ClusterType
         {
-            Default,
+            /// <summary>
+            /// Thrift protocol (default)
+            /// </summary>
+            Thrift,
+
+            /// <summary>
+            /// CQL Binary protocol (Cassandra 1.2+)
+            /// </summary>
+            Cql,
         }
 
         /// <summary>
@@ -59,8 +68,12 @@ namespace Lesula.Cassandra.Configuration
             /// <summary>
             /// Warmup enable and size-controlled enabled pool, divided by keyspaces.
             /// </summary>
-            SizedKeyspacePool = 2
+            SizedKeyspacePool = 2,
 
+            /// <summary>
+            /// Cql binary protocol with pooling
+            /// </summary>
+            CqlPool = 3,
         }
 
         public enum EndpointManagerType
@@ -84,32 +97,34 @@ namespace Lesula.Cassandra.Configuration
         public virtual ICluster Build(CassandraClusterElement clusterConfig)
         {
             ICluster cluster = null;
-            var clusterType = (ClusterType)Enum.Parse(typeof(ClusterType), clusterConfig.ClusterType, true);
-            switch (clusterType)
+
+            switch (clusterConfig.ClusterTypeEnum)
             {
-                case ClusterType.Default:
-                    cluster = this.BuildDefaultCluster(clusterConfig);
+                case ClusterType.Thrift:
+                    cluster = this.BuilDefaultCluster(clusterConfig);
+                    break;
+                case ClusterType.Cql:
+                    clusterConfig.PoolTypeEnum = PoolType.CqlPool;
+                    cluster = this.BuilDefaultCluster(clusterConfig);
                     break;
                 default:
-                    throw new NotImplementedException(string.Format("ClusterType '{0}' not implemented.", clusterType));
+                    throw new NotImplementedException(string.Format("ClusterType '{0}' not implemented.", clusterConfig.ClusterTypeEnum));
             }
 
             return cluster;
         }
 
-        protected virtual ICluster BuildDefaultCluster(CassandraClusterElement clusterConfig)
+        protected virtual ICluster BuilDefaultCluster(CassandraClusterElement clusterConfig)
         {
             var clusterFactory = new DefaultClusterFactory { FriendlyName = clusterConfig.FriendlyName };
-            clusterFactory.PoolManager = this.buildPoolManager(clusterConfig, clusterFactory.FriendlyName);
+            clusterFactory.PoolManager = this.BuildPoolManager(clusterConfig, clusterFactory.FriendlyName);
             return clusterFactory.Create();
         }
 
-        protected virtual IClientPool buildPoolManager(CassandraClusterElement clusterConfig, string clusterName)
+        protected virtual IClientPool BuildPoolManager(CassandraClusterElement clusterConfig, string clusterName)
         {
             IClientPool clientPool;
-            ConnectionElement connectionConfig = clusterConfig.Connection;
-            var poolType = (PoolType)Enum.Parse(typeof(PoolType), connectionConfig.PoolType, true);
-            switch (poolType)
+            switch (clusterConfig.PoolTypeEnum)
             {
                 case PoolType.NoPool:
                     clientPool = this.buildNoClientPool(clusterConfig, clusterName);
@@ -120,17 +135,61 @@ namespace Lesula.Cassandra.Configuration
                 case PoolType.SizedKeyspacePool:
                     clientPool = this.BuildSizeKeyspaceControlledClientPool(clusterConfig, clusterName);
                     break;
+                    case PoolType.CqlPool:
+                    clientPool = this.BuildCqlClientPool(clusterConfig, clusterName);
+                    break;
                 default:
-                    throw new NotImplementedException(string.Format("PoolType '{0}' not implemented.", poolType));
+                    throw new NotImplementedException(string.Format("PoolType '{0}' not implemented.", clusterConfig.PoolTypeEnum));
             }
 
             return clientPool;
         }
 
+        protected IClientPool BuildCqlClientPool(CassandraClusterElement clusterConfig, string clusterName)
+        {
+            int intTempValue = 0;
+            var poolFactory = new SizeControlledClientPoolFactory<CqlDefaultClientPool>();
+            poolFactory.Name = string.Concat(clusterName, "_CQLPool");
+            poolFactory.ClientFactory = new CqlTransportFactory();
+            poolFactory.EndpointManager = this.BuildEndpointManager(clusterConfig, poolFactory.Name);
+
+            SpecialConnectionParameterElement specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolPeriodictimeKey);
+            if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
+            {
+                poolFactory.PeriodicTime = intTempValue;
+            }
+
+            specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolMagicNumberKey);
+            if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
+            {
+                poolFactory.MagicNumber = intTempValue;
+            }
+
+            specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolMaximumClientsToSupportKey);
+            if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
+            {
+                poolFactory.MaximumClientsToSupport = intTempValue;
+            }
+
+            specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolMaximumRetriesToPollClient);
+            if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
+            {
+                poolFactory.MaximumRetriesToPollClient = intTempValue;
+            }
+
+            specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolMinimumClientsToKeepKey);
+            if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
+            {
+                poolFactory.MinimumClientsToKeep = intTempValue;
+            }
+
+            return poolFactory.Create();
+        }
+
         private IClientPool buildSizeControlledClientPool(CassandraClusterElement clusterConfig, string clusterName)
         {
             int intTempValue = 0;
-            var poolFactory = new SizeControlledClientPoolFactory();
+            var poolFactory = new SizeControlledClientPoolFactory<SizeControlledClientPool>();
             poolFactory.Name = string.Concat(clusterName, "_sizeControlledPool");
             poolFactory.ClientFactory = this.buildClientFactory(clusterConfig);
             poolFactory.EndpointManager = this.BuildEndpointManager(clusterConfig, poolFactory.Name);
@@ -164,20 +223,19 @@ namespace Lesula.Cassandra.Configuration
             {
                 poolFactory.MinimumClientsToKeep = intTempValue;
             }
-                 
+
             return poolFactory.Create();
         }
 
         private IClientPool BuildSizeKeyspaceControlledClientPool(CassandraClusterElement clusterConfig, string clusterName)
         {
-            SpecialConnectionParameterElement specialConfig;
             int intTempValue = 0;
-            var poolFactory = new SizeKespaceControlledClientPoolFactory();
+            var poolFactory = new SizeKeyspaceControlledClientPoolFactory();
             poolFactory.Name = string.Concat(clusterName, "_sizeKeyspaceControlledPool");
             poolFactory.ClientFactory = this.buildClientFactory(clusterConfig);
             poolFactory.EndpointManager = this.BuildEndpointManager(clusterConfig, poolFactory.Name);
 
-            specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolPeriodictimeKey);
+            SpecialConnectionParameterElement specialConfig = retrieveSpecialParameter(clusterConfig.Connection.SpecialConnectionParameters, PoolPeriodictimeKey);
             if (specialConfig != null && int.TryParse(specialConfig.Value, out intTempValue))
             {
                 poolFactory.PeriodicTime = intTempValue;
@@ -259,8 +317,8 @@ namespace Lesula.Cassandra.Configuration
                 collection.Add(endpoint);
             }
 
-            return i == 0 
-                ? endpointManager.CassandraEndpoints 
+            return i == 0
+                ? endpointManager.CassandraEndpoints
                 : collection;
         }
 
