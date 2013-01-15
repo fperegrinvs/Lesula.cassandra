@@ -77,14 +77,9 @@ namespace Lesula.Cassandra.Client.Cql
         private const byte MaxStreams = 128;
 
         /// <summary>
-        /// The input stream
-        /// </summary>
-        private Stream InputStream { get; set; }
-
-        /// <summary>
         /// The output stream
         /// </summary>
-        private Stream OutputStream { get; set; }
+        private Stream Stream { get; set; }
 
         /// <summary>
         /// Tcp client
@@ -132,9 +127,7 @@ namespace Lesula.Cassandra.Client.Cql
             this.TcpClient = new TcpClient();
             this.TcpClient.Connect(endpoint.Address, endpoint.Port);
 
-            Stream stream = this.TcpClient.GetStream();
-            this.InputStream = stream;
-            this.OutputStream = stream;
+            this.Stream = this.TcpClient.GetStream();
 
             this.Startup();
             Task.Factory.StartNew(this.Listen);
@@ -162,16 +155,16 @@ namespace Lesula.Cassandra.Client.Cql
             var options = new Dictionary<string, string> { { "CQL_VERSION", this.Config.CqlVersion } };
 
             // say hello
-            using (var frameWriter = new FrameWriter(this.OutputStream, 0))
+            using (var frameWriter = new FrameWriter(this.Stream, 0))
             {
                 frameWriter.SendStartup(options);
             }
 
             // read response header
             var headerBuffer = new byte[HeaderSize];
-            this.InputStream.Read(headerBuffer, 0, headerBuffer.Length);
+            this.Stream.Read(headerBuffer, 0, headerBuffer.Length);
             var header = FrameReader.ProcessHeader(headerBuffer);
-            FrameReader.ReadBody(header, this.InputStream, this.Config.Streaming);
+            FrameReader.ReadBody(header, this.Stream, this.Config.Streaming);
 
             bool authenticate;
 
@@ -201,7 +194,7 @@ namespace Lesula.Cassandra.Client.Cql
             while (true)
             {
                 var headerBuffer = new byte[HeaderSize];
-                await this.InputStream.ReadAsync(headerBuffer, 0, headerBuffer.Length);
+                await this.Stream.ReadAsync(headerBuffer, 0, headerBuffer.Length);
                 var header = FrameReader.ProcessHeader(headerBuffer);
                 this.RouteMessage(header);
             }
@@ -221,7 +214,7 @@ namespace Lesula.Cassandra.Client.Cql
                 Thread.Sleep(50);
             }
 
-            var client = new CqlClient(streamId, this.InputStream, this.OutputStream);
+            var client = new CqlClient(streamId, this.Stream);
             client.Available += () => this.AvailableStreamIds.Add(streamId);
             this.Clients[streamId] = client;
             return client;

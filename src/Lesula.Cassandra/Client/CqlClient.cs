@@ -14,14 +14,14 @@
         private byte StreamId { get; set; }
 
         /// <summary>
-        /// The input stream
-        /// </summary>
-        private Stream InputStream { get; set; }
-
-        /// <summary>
         /// The output stream
         /// </summary>
-        private Stream OutputStream { get; set; }
+        private Stream Stream { get; set; }
+
+        /// <summary>
+        /// Input Stream
+        /// </summary>
+        private WindowedReadStream InputStream { get; set; }
 
         /// <summary>
         /// Current Message Header
@@ -51,18 +51,14 @@
         /// <param name="id">
         /// The id.
         /// </param>
-        /// <param name="inputStream">
-        /// The input stream.
-        /// </param>
-        /// <param name="outputStream">
+        /// <param name="stream">
         /// The output stream.
         /// </param>
-        public CqlClient(byte id, Stream inputStream, Stream outputStream)
+        public CqlClient(byte id, Stream stream)
         {
             this.IsBusy = false;
             this.StreamId = id;
-            this.InputStream = inputStream;
-            this.OutputStream = outputStream;
+            this.Stream = stream;
         }
 
         /// <summary>
@@ -146,10 +142,12 @@
 
         private T ProcessResponse<T>(ICqlObjectBuilder<T> buider)
         {
+            this.InputStream = new WindowedReadStream(this.Stream, this.Header.Size);
+
             switch (this.Header.Operation)
             {
                 case CqlOperation.Result:
-                    return FrameReader.ReadResult(this.Header, this.InputStream, buider);
+                    return FrameReader.ReadResult(this.InputStream, buider);
                 case CqlOperation.Ready:
                 case CqlOperation.Authenticate:
                 case CqlOperation.Supported:
@@ -179,7 +177,7 @@
             this.readerBlocker.Reset();
 
             // query cassandra
-            var writer = new FrameWriter(this.OutputStream, this.StreamId);
+            var writer = new FrameWriter(this.Stream, this.StreamId);
             writer.SendQuery(cql, cl, CqlOperation.Query);
 
             // block this thread to wait for response (the response will unblock this thread)
@@ -192,6 +190,8 @@
         private void EndRequest()
         {
             // client is free again, release the reader
+            this.InputStream.FinishReadingWindow();
+            this.InputStream = null;
             this.readerBlocker.Set();
             this.IsBusy = false;
         }

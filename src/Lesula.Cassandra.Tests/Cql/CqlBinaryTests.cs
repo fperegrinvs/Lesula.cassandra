@@ -67,6 +67,20 @@ namespace Lesula.Cassandra.Tests.Cql
             const string DefaultCluster = "CqlLesula";
             var client = AquilesHelper.RetrieveCluster(DefaultCluster);
             client.ExecuteNonQueryAsync("USE mytest", CqlConsistencyLevel.ONE);
+            try
+            {
+                client.ExecuteNonQueryAsync("DROP TABLE users", CqlConsistencyLevel.ONE);
+            }
+            catch (Exception)
+            {
+            }
+
+            client.ExecuteNonQueryAsync("CREATE TABLE users ( userName varchar PRIMARY KEY, password varchar, gender varchar, sessionToken varchar, state varchar, birth_year bigint, isActive boolean, childs int, lastLogin timestamp, wage double)",
+                CqlConsistencyLevel.ONE);
+            client.ExecuteNonQueryAsync(
+                "INSERT into users (userName, password, gender, sessionToken, state, birth_year, isActive, childs, lastLogin, wage) VALUES ( 'lstern', 'testing', 'male', 'ABFG3', 'PR', 1981, true, 1, 1356847200, 5500.32)",
+                CqlConsistencyLevel.ONE);
+            client.ExecuteNonQueryAsync("SELECT * from users", CqlConsistencyLevel.ONE);
         }
     }
 }

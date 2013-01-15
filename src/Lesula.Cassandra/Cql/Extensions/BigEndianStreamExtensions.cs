@@ -102,9 +102,7 @@ namespace Lesula.Cassandra.Client.Cql.Extensions
         {
             byte[] buffer = new byte[4];
             stream.Read(buffer, 0, buffer.Length);
-            buffer.ReverseIfLittleEndian();
-
-            int data = BitConverter.ToInt32(buffer, 0);
+            int data = buffer.ToInt32();
             return data;
         }
 

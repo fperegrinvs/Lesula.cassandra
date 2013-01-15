@@ -30,6 +30,13 @@ namespace Lesula.Cassandra.Client.Cql
             this.len = len;
         }
 
+        public byte[] FinishReadingWindow()
+        {
+            var buffer = new byte[this.len];
+            this.Read(buffer, 0, buffer.Length);
+            return buffer;
+        }
+
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -86,6 +93,11 @@ namespace Lesula.Cassandra.Client.Cql
 
         public override int Read(byte[] buffer, int offset, int count)
         {
+            if (count == 0)
+            {
+                return 0;
+            }
+
             this.len -= count;
             if (this.len < 0)
             {

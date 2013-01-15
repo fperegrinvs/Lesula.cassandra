@@ -22,6 +22,7 @@ namespace Lesula.Cassandra.Client.Cql
     using Lesula.Cassandra.Client.Cql.Enumerators;
     using Lesula.Cassandra.Client.Cql.Exceptions;
     using Lesula.Cassandra.Client.Cql.Extensions;
+    using Lesula.Cassandra.FrontEnd;
 
     internal class FrameReader : IFrameReader, IDisposable
     {
@@ -110,24 +111,86 @@ namespace Lesula.Cassandra.Client.Cql
             return new FrameReader(header, stream, streaming);
         }
 
-        public static T ReadResult<T>(CqlMessageHeader header, Stream stream, ICqlObjectBuilder<T> buider)
+        public static T ReadResult<T>(WindowedReadStream stream, ICqlObjectBuilder<T> buider)
         {
             var responseType = (CqlResultKind)stream.ReadInt();
             switch (responseType)
             {
+                case CqlResultKind.Rows:
+                    return ReadRows(stream, buider);
                 case CqlResultKind.SchemaChange:
                 case CqlResultKind.SetKeyspace:
-                case CqlResultKind.Rows:
                 case CqlResultKind.Prepared:
-                case CqlResultKind.Void:
                     break;
+                case CqlResultKind.Void:
+                    return default(T);
             }
 
-            var buffer = new byte[header.Size - 4];
-            stream.Read(buffer, 0, buffer.Length);
             return default(T);
         }
 
+        protected static T ReadRows<T>(WindowedReadStream stream, ICqlObjectBuilder<T> buider)
+        {
+            var meta = ReadMeta(stream);
+            meta.RowsCount = stream.ReadInt();
+
+            return default(T);
+        }
+
+        public static CqlMetadata ReadMeta(WindowedReadStream stream)
+        {
+            var meta = new CqlMetadata();
+            meta.Flags = (CqlMetadataFlag)stream.ReadInt();
+            meta.ColumnsCount = stream.ReadInt();
+
+            bool global = (meta.Flags & CqlMetadataFlag.GlobalTable) == CqlMetadataFlag.GlobalTable;
+            if (global)
+            {
+                meta.Keyspace = stream.ReadString();
+                meta.ColumnFamily = stream.ReadString();
+            }
+
+            meta.Columns = new MetadataColumn[meta.ColumnsCount];
+            for (var i = 0; i < meta.ColumnsCount; i++)
+            {
+                var col = new MetadataColumn();
+                if (!global)
+                {
+                    col.Keyspace = stream.ReadString();
+                    col.ColumnFamily = stream.ReadString();
+                }
+
+                col.ColumnName = stream.ReadString();
+                col.Type = ProcessColumnType(stream);
+                meta.Columns[i] = col;
+            }
+
+            return meta;
+        }
+
+        protected static CqlType ProcessColumnType(WindowedReadStream stream)
+        {
+            var type = new CqlType();
+            type.ColumnType = (CqlColumnType)stream.ReadShort();
+            switch (type.ColumnType)
+            {
+                case CqlColumnType.Custom:
+                    type.CustomType = stream.ReadString();
+                    break;
+                case CqlColumnType.List:
+                case CqlColumnType.Set:
+                    type.SubType = new CqlType[1];
+                    type.SubType[0] = ProcessColumnType(stream);
+                    break;
+                case CqlColumnType.Map:
+                    type.SubType = new CqlType[2];
+                    type.SubType[0] = ProcessColumnType(stream);
+                    type.SubType[1] = ProcessColumnType(stream);
+                    break;
+            }
+
+            return type;
+        }
 
         public static CqlMessageHeader ProcessHeader(byte[] headerBytes)
         {
@@ -154,7 +217,7 @@ namespace Lesula.Cassandra.Client.Cql
             header.Flags = (CqlHeaderFlags)headerBytes[1];
             header.StreamId = headerBytes[2];
             header.Operation = (CqlOperation)headerBytes[3];
-            header.Size = BitConverter.ToInt32(headerBytes, 4).ReverseBytes();
+            header.Size = (int)BitConverter.ToUInt32(headerBytes, 4).ReverseBytes();
             return header;
         }
 
