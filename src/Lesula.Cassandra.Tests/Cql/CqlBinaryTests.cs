@@ -80,7 +80,7 @@ namespace Lesula.Cassandra.Tests.Cql
             client.ExecuteNonQueryAsync(
                 "INSERT into users (userName, password, gender, sessionToken, state, birth_year, isActive, childs, lastLogin, wage) VALUES ( 'lstern', 'testing', 'male', 'ABFG3', 'PR', 1981, true, 1, 1356847200, 5500.32)",
                 CqlConsistencyLevel.ONE);
-            client.ExecuteNonQueryAsync("SELECT * from users", CqlConsistencyLevel.ONE);
+            var str = client.ExecuteNonQueryAsync("SELECT * from users", CqlConsistencyLevel.ONE);
         }
     }
 }

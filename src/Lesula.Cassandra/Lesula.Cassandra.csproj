@@ -153,6 +153,7 @@
     <Compile Include="Connection\Pooling\Impl\NoClientPool.cs" />
     <Compile Include="Connection\Pooling\Impl\SizeControlledClientPool.cs" />
     <Compile Include="Connection\Pooling\ISizeControlledPool.cs" />
+    <Compile Include="Cql\BuilderReadStream.cs" />
     <Compile Include="Cql\CqlConfig.cs" />
     <Compile Include="Cql\CqlMessageHeader.cs" />
     <Compile Include="Cql\CqlMetadata.cs" />

@@ -18,16 +18,16 @@ namespace Lesula.Cassandra.Client.Cql
     using System;
     using System.IO;
 
-    internal class WindowedReadStream : Stream
+    internal class BuilderReadStream : Stream
     {
-        private readonly Stream baseStream;
+        private readonly WindowedReadStream baseStream;
 
-        public int len;
+        private int len;
 
-        public WindowedReadStream(Stream baseStream, int len)
+        public BuilderReadStream(WindowedReadStream baseStream)
         {
             this.baseStream = baseStream;
-            this.len = len;
+            this.len = baseStream.len;
         }
 
         public byte[] FinishReadingWindow()
@@ -98,11 +98,12 @@ namespace Lesula.Cassandra.Client.Cql
                 return 0;
             }
 
-            this.len -= count;
-            if (this.len < 0)
+            if (this.len < count)
             {
-                throw new IOException("Reading past out of window");
+                count = this.len;
             }
+
+            this.len -= count;
 
             int read = this.baseStream.Read(buffer, offset, count);
             if (count != read)

@@ -134,7 +134,7 @@ namespace Lesula.Cassandra.Client.Cql
             var meta = ReadMeta(stream);
             meta.RowsCount = stream.ReadInt();
 
-            return default(T);
+            return buider.ReadRows(new BuilderReadStream(stream), meta);
         }
 
         public static CqlMetadata ReadMeta(WindowedReadStream stream)

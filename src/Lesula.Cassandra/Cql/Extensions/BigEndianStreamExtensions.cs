@@ -25,7 +25,7 @@ namespace Lesula.Cassandra.Client.Cql.Extensions
     /// <remarks>
     /// Taken from https://github.com/pchalamet/cassandra-sharp
     /// </remarks>
-    internal static class BigEndianStreamExtensions
+    public static class BigEndianStreamExtensions
     {
         public static void WriteShort(this Stream stream, short data)
         {
