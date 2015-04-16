@@ -72,9 +72,17 @@
         public SizeControlledClientPool()
         {
             this.managedClientQuantity = 0;
-            this.referencedClients = new ConcurrentDictionary<IClient,byte>();
+            this.referencedClients = new ConcurrentDictionary<IClient, byte>();
             this.idleClients = new ConcurrentBag<IClient>();
             this.controlIdleClientSizeTimer = new Timer(this.controlIdleClientSizeMethod, null, Timeout.Infinite, Timeout.Infinite);
+        }
+
+        public List<IEndpoint> EndPoints
+        {
+            get
+            {
+                return this.EndpointManager.Endpoints;
+            }
         }
 
         public void Initialize()

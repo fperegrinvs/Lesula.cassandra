@@ -21,6 +21,7 @@ namespace Lesula.Cassandra.Cluster.Factory
 {
     using Lesula.Cassandra;
     using Lesula.Cassandra.Cluster.Impl;
+    using Lesula.Cassandra.Configuration;
     using Lesula.Cassandra.Connection.Pooling;
 
     /// <summary>
@@ -42,6 +43,7 @@ namespace Lesula.Cassandra.Cluster.Factory
         /// How many times the client should a command after a recoverable error ?
         /// </summary>
         public int MaximumRetries { get; set; }
+        
 
         #region IFactory<ICluster> Members
 
@@ -51,7 +53,8 @@ namespace Lesula.Cassandra.Cluster.Factory
                 {
                     PoolManager = this.PoolManager,
                     Name = this.FriendlyName,
-                    MaximumRetries = this.MaximumRetries
+                    MaximumRetries = this.MaximumRetries,
+                    EndPoints = this.PoolManager.EndPoints,
                 };
 
             return cluster;

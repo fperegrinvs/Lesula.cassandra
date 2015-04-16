@@ -25,6 +25,9 @@ namespace Lesula.Cassandra.Cluster.Impl
     using Lesula.Cassandra.Client;
     using Lesula.Cassandra.Connection.Pooling;
     using Lesula.Cassandra.Exceptions;
+    using Lesula.Cassandra.Configuration;
+    using Lesula.Cassandra.Model;
+    using System.Collections.Generic;
 
     public class DefaultCluster : ICluster
     {
@@ -43,6 +46,7 @@ namespace Lesula.Cassandra.Cluster.Impl
 
         public string Name { get; set; }
 
+        public List<IEndpoint> EndPoints { get; set; }
 
         public IClient Borrow()
         {

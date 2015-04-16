@@ -20,8 +20,10 @@
 namespace Lesula.Cassandra.Cluster
 {
     using Lesula.Cassandra;
-
     using Lesula.Cassandra.Client;
+    using Lesula.Cassandra.Configuration;
+    using Lesula.Cassandra.Model;
+    using System.Collections.Generic;
 
     public interface ICluster
     {
@@ -41,5 +43,7 @@ namespace Lesula.Cassandra.Cluster
         void Invalidate(IClient client);
         T Execute<T>(ExecutionBlock<T> command);
         T Execute<T>(ExecutionBlock<T> command, string keyspaceName);
+
+        List<IEndpoint> EndPoints { get;  }
     }
 }

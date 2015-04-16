@@ -9,6 +9,7 @@ namespace Lesula.Cassandra.Connection.Pooling.Impl
     using Lesula.Cassandra.Connection.EndpointManager;
     using Lesula.Cassandra.Connection.Factory;
     using Lesula.Cassandra.Model;
+    using System.Collections.Generic;
 
     public class NoClientPool : IClientPool
     {
@@ -23,6 +24,8 @@ namespace Lesula.Cassandra.Connection.Pooling.Impl
             set;
             get;
         }
+
+        public List<IEndpoint> EndPoints { get; set; }
 
         #region IConnectionPool Members
 

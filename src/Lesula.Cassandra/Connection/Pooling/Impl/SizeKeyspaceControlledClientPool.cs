@@ -41,6 +41,15 @@
             get;
             set;
         }
+
+        public List<IEndpoint> EndPoints
+        {
+            get
+            {
+                return this.EndpointManager.Endpoints;
+            }
+        }
+
         public int DueTime
         {
             get { return this.dueTime; }
