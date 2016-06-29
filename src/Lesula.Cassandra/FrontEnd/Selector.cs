@@ -23,7 +23,7 @@ namespace Lesula.Cassandra.FrontEnd
     /// Classe usada para facilitar a consulta de dados ao Cassandra.
     ///   Interface baseada no Pelops https://github.com/s7/scale7-pelops
     /// </summary>
-    public class Selector
+    public class Selector : ISelector
     {
         // SlicePredicates constants for common internal uses
         #region Constants and Fields

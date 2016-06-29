@@ -61,8 +61,9 @@
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Cassandra">
-      <HintPath>..\packages\CassandraCSharpDriver.2.5.2\lib\net40\Cassandra.dll</HintPath>
+    <Reference Include="Cassandra, Version=2.7.0.0, Culture=neutral, PublicKeyToken=10b231fbfc8c4b4d, processorArchitecture=MSIL">
+      <HintPath>..\..\..\upstore\src\Slot\packages\CassandraCSharpDriver.2.7.3\lib\net40\Cassandra.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="LZ4">
       <HintPath>..\packages\lz4net.1.0.5.93\lib\net40-client\LZ4.dll</HintPath>
@@ -156,6 +157,9 @@
     <Compile Include="Exceptions\AquilesException.cs" />
     <Compile Include="Exceptions\ExecutionBlockException.cs" />
     <Compile Include="Extensions\FactoryExtensions.cs" />
+    <Compile Include="FrontEnd\IMutator.cs" />
+    <Compile Include="FrontEnd\IRowDeletor.cs" />
+    <Compile Include="FrontEnd\ISelector.cs" />
     <Compile Include="Helpers\DateTimePrecise.cs" />
     <Compile Include="Helpers\Enumerators\GuidVersion.cs" />
     <Compile Include="Helpers\GuidGenerator.cs" />

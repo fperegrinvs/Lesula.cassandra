@@ -49,7 +49,7 @@ namespace Lesula.Cassandra.FrontEnd
     /// </code>
     /// object can not be re-used.
     /// </summary>
-    public class Mutator
+    public class Mutator : IMutator
     {
         #region Constants and Fields
 

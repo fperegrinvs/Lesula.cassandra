@@ -10,7 +10,7 @@
     /// <summary>
     /// Facilitates the removal of data at a key-level.
     /// </summary>
-    public class RowDeletor
+    public class RowDeletor : IRowDeletor
     {
         /// <summary>
         /// The timestamp.
